@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageCircle, Send, Loader2, Shield } from "lucide-react";
+import { getChatKeywordResponse } from "@/lib/burnout";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -27,6 +28,14 @@ export function AiChat() {
     setMessages(allMessages);
     setInput("");
     setIsLoading(true);
+
+    // Check for keyword-based response first
+    const keywordResponse = getChatKeywordResponse(text);
+    if (keywordResponse) {
+      setMessages([...allMessages, { role: "assistant", content: keywordResponse }]);
+      setIsLoading(false);
+      return;
+    }
 
     let assistantSoFar = "";
     const upsert = (chunk: string) => {

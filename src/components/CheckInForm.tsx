@@ -4,8 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { calculateBurnoutScore, saveCheckIn, getRiskLevel, getRiskLabel } from "@/lib/burnout";
-import { CheckCircle2, Moon, Brain, Briefcase } from "lucide-react";
+import {
+  calculateBurnoutScore, saveCheckIn, getRiskLevel, getRiskLabel,
+  getScoreExplanation, getInsights, getRecommendedActions, getCheckIns,
+  type CheckInData,
+} from "@/lib/burnout";
+import { CheckCircle2, Moon, Brain, Briefcase, Info, Lightbulb, AlertTriangle } from "lucide-react";
 
 interface CheckInFormProps {
   onCheckIn: () => void;
@@ -18,22 +22,35 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
   const [mood, setMood] = useState(3);
   const [sleepHours, setSleepHours] = useState("7");
   const [workStress, setWorkStress] = useState(3);
-  const [result, setResult] = useState<{ score: number; level: string } | null>(null);
+  const [result, setResult] = useState<{
+    score: number;
+    level: string;
+    explanations: string[];
+    insights: string[];
+    actions: string[];
+  } | null>(null);
 
   const handleSubmit = () => {
     const sleep = parseFloat(sleepHours) || 0;
     const score = calculateBurnoutScore(mood, sleep, workStress);
     const level = getRiskLevel(score);
+    const explanations = getScoreExplanation(mood, sleep, workStress);
+    const actions = getRecommendedActions(level);
 
-    saveCheckIn({
+    const currentCheckIn: CheckInData = {
       mood,
       sleepHours: sleep,
       workStress,
       timestamp: new Date().toISOString(),
       burnoutScore: score,
-    });
+    };
 
-    setResult({ score, level });
+    const previousCheckIns = getCheckIns();
+    const previous = previousCheckIns.length > 0 ? previousCheckIns[previousCheckIns.length - 1] : null;
+    const insights = getInsights(currentCheckIn, previous);
+
+    saveCheckIn(currentCheckIn);
+    setResult({ score, level, explanations, insights, actions });
     onCheckIn();
   };
 
@@ -50,24 +67,83 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
     const bgClass = riskLevel === 'low' ? 'bg-risk-low/10' : riskLevel === 'medium' ? 'bg-risk-medium/10' : 'bg-risk-high/10';
 
     return (
-      <Card className="border-0 shadow-sm">
-        <CardContent className="pt-8 pb-8 text-center space-y-4">
-          <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${bgClass}`}>
-            <span className={`text-3xl font-bold ${colorClass}`}>{result.score}</span>
-          </div>
-          <div>
-            <p className={`text-lg font-semibold ${colorClass}`}>{getRiskLabel(riskLevel)}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {riskLevel === 'low' && "You're doing well! Keep taking care of yourself."}
-              {riskLevel === 'medium' && "Consider taking a break and prioritizing rest."}
-              {riskLevel === 'high' && "Your burnout risk is elevated. Please take care of yourself."}
-            </p>
-          </div>
-          <Button onClick={resetForm} variant="outline" className="mt-4">
-            New Check-in
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {/* Score */}
+        <Card className="border-0 shadow-sm">
+          <CardContent className="pt-8 pb-6 text-center space-y-4">
+            <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${bgClass}`}>
+              <span className={`text-3xl font-bold ${colorClass}`}>{result.score}</span>
+            </div>
+            <div>
+              <p className={`text-lg font-semibold ${colorClass}`}>{getRiskLabel(riskLevel)}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Why this score */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Info className="h-4 w-4 text-muted-foreground" />
+              Why this score
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1.5 text-sm text-muted-foreground">
+              {result.explanations.map((e, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                  {e}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+
+        {/* Insights */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-muted-foreground" />
+              Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1.5 text-sm text-muted-foreground">
+              {result.insights.map((ins, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                  {ins}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+
+        {/* Recommended Actions */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              Recommended Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1.5 text-sm text-muted-foreground">
+              {result.actions.map((a, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                  {a}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Button onClick={resetForm} variant="outline" className="w-full">
+          New Check-in
+        </Button>
+      </div>
     );
   }
 
