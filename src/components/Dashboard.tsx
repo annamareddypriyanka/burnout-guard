@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getCheckIns, getRiskLevel, getRiskLabel, clearCheckIns, type CheckInData } from "@/lib/burnout";
 import { useAuth } from "@/contexts/AuthContext";
-import { BarChart3, Trash2, TrendingDown, TrendingUp, Minus, Loader2 } from "lucide-react";
+import { BarChart3, Trash2, TrendingDown, TrendingUp, Minus, Loader2, AlertTriangle, Clock, Activity } from "lucide-react";
 
 interface DashboardProps {
   refreshKey: number;
@@ -63,6 +63,29 @@ export function Dashboard({ refreshKey }: DashboardProps) {
 
   const sparkData = checkIns.slice(-7);
   const maxScore = 6;
+
+  // Timeline: last 5, latest first
+  const timeline = [...checkIns].reverse().slice(0, 5);
+
+  // Early warnings (need >= 3 entries)
+  const warnings: string[] = [];
+  if (checkIns.length >= 3) {
+    const last3 = checkIns.slice(-3);
+    if (last3[2].burnoutScore > last3[1].burnoutScore && last3[1].burnoutScore > last3[0].burnoutScore) {
+      warnings.push("⚠️ Burnout risk is increasing over recent entries");
+    }
+    if (last3[2].workStress > last3[1].workStress && last3[1].workStress > last3[0].workStress) {
+      warnings.push("⚠️ Stress levels are rising consistently");
+    }
+    if (last3[2].sleepHours < last3[1].sleepHours && last3[1].sleepHours < last3[0].sleepHours) {
+      warnings.push("⚠️ Sleep is reducing over time");
+    }
+  }
+
+  // Weekly summary: use last 7 entries as proxy
+  const weekData = checkIns.slice(-7);
+  const avgSleep = (weekData.reduce((s, c) => s + c.sleepHours, 0) / weekData.length).toFixed(1);
+  const avgStress = (weekData.reduce((s, c) => s + c.workStress, 0) / weekData.length).toFixed(1);
 
   const handleClear = async () => {
     if (!user) return;
@@ -130,6 +153,69 @@ export function Dashboard({ refreshKey }: DashboardProps) {
               <Trash2 className="h-3 w-3 mr-1" />
               Clear data
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Burnout Timeline */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" /> Burnout Timeline
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {timeline.map((d, i) => {
+              const level = getRiskLevel(d.burnoutScore);
+              const lc = level === 'low' ? 'risk-low' : level === 'medium' ? 'risk-medium' : 'risk-high';
+              return (
+                <div key={i} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
+                  <span className="text-muted-foreground">
+                    {new Date(d.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </span>
+                  <span className="font-medium">Score: {d.burnoutScore}</span>
+                  <span className={`text-xs font-semibold ${lc}`}>{getRiskLabel(level)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Early Warning */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" /> Early Warnings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {checkIns.length < 3 ? (
+            <p className="text-sm text-muted-foreground">Not enough data for trend analysis</p>
+          ) : warnings.length === 0 ? (
+            <p className="text-sm text-muted-foreground">✅ No warnings — your trends look stable</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {warnings.map((w, i) => (
+                <li key={i} className="text-sm text-destructive">{w}</li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Weekly Summary */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Activity className="h-4 w-4 text-muted-foreground" /> Weekly Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>Avg Sleep: <span className="font-medium text-foreground">{avgSleep} hrs</span></p>
+            <p>Avg Stress: <span className="font-medium text-foreground">{avgStress}/5</span></p>
           </div>
         </CardContent>
       </Card>
