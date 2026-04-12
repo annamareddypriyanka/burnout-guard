@@ -1,16 +1,37 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getCheckIns, getRiskLevel, getRiskLabel, clearCheckIns } from "@/lib/burnout";
-import { BarChart3, Trash2, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { getCheckIns, getRiskLevel, getRiskLabel, clearCheckIns, type CheckInData } from "@/lib/burnout";
+import { useAuth } from "@/contexts/AuthContext";
+import { BarChart3, Trash2, TrendingDown, TrendingUp, Minus, Loader2 } from "lucide-react";
 
 interface DashboardProps {
   refreshKey: number;
 }
 
 export function Dashboard({ refreshKey }: DashboardProps) {
-  const checkIns = getCheckIns();
-  // Force re-render via key
-  void refreshKey;
+  const { user } = useAuth();
+  const [checkIns, setCheckIns] = useState<CheckInData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    getCheckIns(user.uid).then((data) => {
+      setCheckIns(data);
+      setLoading(false);
+    });
+  }, [user, refreshKey]);
+
+  if (loading) {
+    return (
+      <Card className="border-0 shadow-sm">
+        <CardContent className="pt-8 pb-8 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (checkIns.length === 0) {
     return (
@@ -28,7 +49,6 @@ export function Dashboard({ refreshKey }: DashboardProps) {
   const colorClass = latestLevel === 'low' ? 'risk-low' : latestLevel === 'medium' ? 'risk-medium' : 'risk-high';
   const bgClass = latestLevel === 'low' ? 'bg-risk-low/10' : latestLevel === 'medium' ? 'bg-risk-medium/10' : 'bg-risk-high/10';
 
-  // Trend: compare last 3 average to previous 3
   let trend: 'up' | 'down' | 'stable' = 'stable';
   if (checkIns.length >= 2) {
     const recent = checkIns.slice(-3);
@@ -41,13 +61,17 @@ export function Dashboard({ refreshKey }: DashboardProps) {
     }
   }
 
-  // Simple sparkline data (last 7)
   const sparkData = checkIns.slice(-7);
   const maxScore = 6;
 
+  const handleClear = async () => {
+    if (!user) return;
+    await clearCheckIns(user.uid);
+    setCheckIns([]);
+  };
+
   return (
     <div className="space-y-4">
-      {/* Latest Score */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg font-semibold">Latest Score</CardTitle>
@@ -72,7 +96,6 @@ export function Dashboard({ refreshKey }: DashboardProps) {
         </CardContent>
       </Card>
 
-      {/* Mini Chart */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg font-semibold">Recent Trend</CardTitle>
@@ -102,7 +125,7 @@ export function Dashboard({ refreshKey }: DashboardProps) {
               variant="ghost"
               size="sm"
               className="text-xs text-muted-foreground h-auto p-0 hover:text-destructive"
-              onClick={() => { clearCheckIns(); window.location.reload(); }}
+              onClick={handleClear}
             >
               <Trash2 className="h-3 w-3 mr-1" />
               Clear data

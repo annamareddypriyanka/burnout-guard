@@ -9,7 +9,8 @@ import {
   getScoreExplanation, getInsights, getRecommendedActions, getCheckIns,
   type CheckInData,
 } from "@/lib/burnout";
-import { CheckCircle2, Moon, Brain, Briefcase, Info, Lightbulb, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { CheckCircle2, Moon, Brain, Briefcase, Info, Lightbulb, AlertTriangle, Loader2 } from "lucide-react";
 
 interface CheckInFormProps {
   onCheckIn: () => void;
@@ -19,9 +20,11 @@ const moodLabels = ["", "😞 Very Low", "😔 Low", "😐 Neutral", "🙂 Good"
 const stressLabels = ["", "😌 Minimal", "🙂 Low", "😐 Moderate", "😰 High", "🔥 Very High"];
 
 export function CheckInForm({ onCheckIn }: CheckInFormProps) {
+  const { user } = useAuth();
   const [mood, setMood] = useState(3);
   const [sleepHours, setSleepHours] = useState("7");
   const [workStress, setWorkStress] = useState(3);
+  const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{
     score: number;
     level: string;
@@ -30,7 +33,10 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
     actions: string[];
   } | null>(null);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!user) return;
+    setSubmitting(true);
+
     const sleep = parseFloat(sleepHours) || 0;
     const score = calculateBurnoutScore(mood, sleep, workStress);
     const level = getRiskLevel(score);
@@ -45,12 +51,13 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
       burnoutScore: score,
     };
 
-    const previousCheckIns = getCheckIns();
+    const previousCheckIns = await getCheckIns(user.uid);
     const previous = previousCheckIns.length > 0 ? previousCheckIns[previousCheckIns.length - 1] : null;
     const insights = getInsights(currentCheckIn, previous);
 
-    saveCheckIn(currentCheckIn);
+    await saveCheckIn(currentCheckIn, user.uid);
     setResult({ score, level, explanations, insights, actions });
+    setSubmitting(false);
     onCheckIn();
   };
 
@@ -68,7 +75,6 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
 
     return (
       <div className="space-y-4">
-        {/* Score */}
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-8 pb-6 text-center space-y-4">
             <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${bgClass}`}>
@@ -80,12 +86,10 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
           </CardContent>
         </Card>
 
-        {/* Why this score */}
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Info className="h-4 w-4 text-muted-foreground" />
-              Why this score
+              <Info className="h-4 w-4 text-muted-foreground" /> Why this score
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -100,12 +104,10 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
           </CardContent>
         </Card>
 
-        {/* Insights */}
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-muted-foreground" />
-              Insights
+              <Lightbulb className="h-4 w-4 text-muted-foreground" /> Insights
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -120,12 +122,10 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
           </CardContent>
         </Card>
 
-        {/* Recommended Actions */}
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-              Recommended Actions
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" /> Recommended Actions
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -156,59 +156,38 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Mood */}
         <div className="space-y-3">
           <Label className="flex items-center gap-2 text-sm font-medium">
             <Brain className="h-4 w-4 text-muted-foreground" />
             Mood
             <span className="ml-auto text-muted-foreground font-normal">{moodLabels[mood]}</span>
           </Label>
-          <Slider
-            value={[mood]}
-            onValueChange={([v]) => setMood(v)}
-            min={1}
-            max={5}
-            step={1}
-            className="py-1"
-          />
+          <Slider value={[mood]} onValueChange={([v]) => setMood(v)} min={1} max={5} step={1} className="py-1" />
         </div>
 
-        {/* Sleep */}
         <div className="space-y-3">
           <Label className="flex items-center gap-2 text-sm font-medium">
             <Moon className="h-4 w-4 text-muted-foreground" />
             Sleep Hours
           </Label>
           <Input
-            type="number"
-            min={0}
-            max={24}
-            step={0.5}
-            value={sleepHours}
-            onChange={(e) => setSleepHours(e.target.value)}
+            type="number" min={0} max={24} step={0.5}
+            value={sleepHours} onChange={(e) => setSleepHours(e.target.value)}
             className="max-w-[120px]"
           />
         </div>
 
-        {/* Work Stress */}
         <div className="space-y-3">
           <Label className="flex items-center gap-2 text-sm font-medium">
             <Briefcase className="h-4 w-4 text-muted-foreground" />
             Work Stress
             <span className="ml-auto text-muted-foreground font-normal">{stressLabels[workStress]}</span>
           </Label>
-          <Slider
-            value={[workStress]}
-            onValueChange={([v]) => setWorkStress(v)}
-            min={1}
-            max={5}
-            step={1}
-            className="py-1"
-          />
+          <Slider value={[workStress]} onValueChange={([v]) => setWorkStress(v)} min={1} max={5} step={1} className="py-1" />
         </div>
 
-        <Button onClick={handleSubmit} className="w-full">
-          Submit Check-in
+        <Button onClick={handleSubmit} className="w-full" disabled={submitting}>
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Check-in"}
         </Button>
       </CardContent>
     </Card>

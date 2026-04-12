@@ -1,9 +1,16 @@
+import {
+  collection, addDoc, query, where, orderBy, getDocs, deleteDoc, doc,
+  type DocumentData,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 export interface CheckInData {
   mood: number;
   sleepHours: number;
   workStress: number;
   timestamp: string;
   burnoutScore: number;
+  user_id?: string;
 }
 
 export type RiskLevel = 'low' | 'medium' | 'high';
@@ -106,25 +113,36 @@ export function getChatKeywordResponse(message: string): string | null {
   return null;
 }
 
-const STORAGE_KEY = 'burnout-guard-checkins';
+// ── Firestore persistence ──
 
-export function saveCheckIn(data: CheckInData): void {
-  const existing = getCheckIns();
-  existing.push(data);
-  // Keep only last 30 entries for privacy
-  const trimmed = existing.slice(-30);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+const COLLECTION = "checkins";
+
+export async function saveCheckIn(data: CheckInData, userId: string): Promise<void> {
+  await addDoc(collection(db, COLLECTION), { ...data, user_id: userId });
 }
 
-export function getCheckIns(): CheckInData[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+export async function getCheckIns(userId: string): Promise<CheckInData[]> {
+  const q = query(
+    collection(db, COLLECTION),
+    where("user_id", "==", userId),
+    orderBy("timestamp", "asc"),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const data = d.data() as DocumentData;
+    return {
+      mood: data.mood,
+      sleepHours: data.sleepHours,
+      workStress: data.workStress,
+      timestamp: data.timestamp,
+      burnoutScore: data.burnoutScore,
+    } as CheckInData;
+  });
 }
 
-export function clearCheckIns(): void {
-  localStorage.removeItem(STORAGE_KEY);
+export async function clearCheckIns(userId: string): Promise<void> {
+  const q = query(collection(db, COLLECTION), where("user_id", "==", userId));
+  const snap = await getDocs(q);
+  const promises = snap.docs.map((d) => deleteDoc(doc(db, COLLECTION, d.id)));
+  await Promise.all(promises);
 }
