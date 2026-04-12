@@ -118,31 +118,53 @@ export function getChatKeywordResponse(message: string): string | null {
 const COLLECTION = "checkins";
 
 export async function saveCheckIn(data: CheckInData, userId: string): Promise<void> {
-  await addDoc(collection(db, COLLECTION), { ...data, user_id: userId });
+  try {
+    await addDoc(collection(db, COLLECTION), {
+      user_id: userId,
+      mood: data.mood,
+      sleep: data.sleepHours,
+      stress: data.workStress,
+      burnout_score: data.burnoutScore,
+      created_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Failed to save check-in to Firestore:", error);
+    throw error;
+  }
 }
 
 export async function getCheckIns(userId: string): Promise<CheckInData[]> {
-  const q = query(
-    collection(db, COLLECTION),
-    where("user_id", "==", userId),
-    orderBy("timestamp", "asc"),
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => {
-    const data = d.data() as DocumentData;
-    return {
-      mood: data.mood,
-      sleepHours: data.sleepHours,
-      workStress: data.workStress,
-      timestamp: data.timestamp,
-      burnoutScore: data.burnoutScore,
-    } as CheckInData;
-  });
+  try {
+    const q = query(
+      collection(db, COLLECTION),
+      where("user_id", "==", userId),
+      orderBy("created_at", "asc"),
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => {
+      const data = d.data() as DocumentData;
+      return {
+        mood: data.mood,
+        sleepHours: data.sleep,
+        workStress: data.stress,
+        timestamp: data.created_at,
+        burnoutScore: data.burnout_score,
+      } as CheckInData;
+    });
+  } catch (error) {
+    console.error("Failed to fetch check-ins from Firestore:", error);
+    return [];
+  }
 }
 
 export async function clearCheckIns(userId: string): Promise<void> {
-  const q = query(collection(db, COLLECTION), where("user_id", "==", userId));
-  const snap = await getDocs(q);
-  const promises = snap.docs.map((d) => deleteDoc(doc(db, COLLECTION, d.id)));
-  await Promise.all(promises);
+  try {
+    const q = query(collection(db, COLLECTION), where("user_id", "==", userId));
+    const snap = await getDocs(q);
+    const promises = snap.docs.map((d) => deleteDoc(doc(db, COLLECTION, d.id)));
+    await Promise.all(promises);
+  } catch (error) {
+    console.error("Failed to clear check-ins from Firestore:", error);
+    throw error;
+  }
 }
