@@ -37,28 +37,33 @@ export function CheckInForm({ onCheckIn }: CheckInFormProps) {
     if (!user) return;
     setSubmitting(true);
 
-    const sleep = parseFloat(sleepHours) || 0;
-    const score = calculateBurnoutScore(mood, sleep, workStress);
-    const level = getRiskLevel(score);
-    const explanations = getScoreExplanation(mood, sleep, workStress);
-    const actions = getRecommendedActions(level);
+    try {
+      const sleep = parseFloat(sleepHours) || 0;
+      const score = calculateBurnoutScore(mood, sleep, workStress);
+      const level = getRiskLevel(score);
+      const explanations = getScoreExplanation(mood, sleep, workStress);
+      const actions = getRecommendedActions(level);
 
-    const currentCheckIn: CheckInData = {
-      mood,
-      sleepHours: sleep,
-      workStress,
-      timestamp: new Date().toISOString(),
-      burnoutScore: score,
-    };
+      const currentCheckIn: CheckInData = {
+        mood,
+        sleepHours: sleep,
+        workStress,
+        timestamp: new Date().toISOString(),
+        burnoutScore: score,
+      };
 
-    const previousCheckIns = await getCheckIns(user.uid);
-    const previous = previousCheckIns.length > 0 ? previousCheckIns[previousCheckIns.length - 1] : null;
-    const insights = getInsights(currentCheckIn, previous);
+      const previousCheckIns = await getCheckIns(user.uid);
+      const previous = previousCheckIns.length > 0 ? previousCheckIns[previousCheckIns.length - 1] : null;
+      const insights = getInsights(currentCheckIn, previous);
 
-    await saveCheckIn(currentCheckIn, user.uid);
-    setResult({ score, level, explanations, insights, actions });
-    setSubmitting(false);
-    onCheckIn();
+      await saveCheckIn(currentCheckIn, user.uid);
+      setResult({ score, level, explanations, insights, actions });
+      onCheckIn();
+    } catch (error) {
+      console.error("Check-in failed:", error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const resetForm = () => {
