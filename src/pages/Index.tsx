@@ -44,6 +44,7 @@ const Index = () => {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
+        <SafetyAlert refreshKey={refreshKey} />
         <Tabs defaultValue="checkin" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="checkin" className="gap-1.5 text-xs sm:text-sm">
