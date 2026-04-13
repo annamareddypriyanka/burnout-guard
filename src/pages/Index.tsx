@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckInForm } from "@/components/CheckInForm";
 import { Dashboard } from "@/components/Dashboard";
 import { AiChat } from "@/components/AiChat";
+import { SafetyAlert } from "@/components/SafetyAlert";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginScreen } from "@/components/LoginScreen";
 import { signOut } from "firebase/auth";
@@ -43,6 +44,7 @@ const Index = () => {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
+        <SafetyAlert refreshKey={refreshKey} />
         <Tabs defaultValue="checkin" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="checkin" className="gap-1.5 text-xs sm:text-sm">
