@@ -1,5 +1,5 @@
 import {
-  collection, addDoc, query, where, orderBy, getDocs, deleteDoc, doc,
+  collection, addDoc, query, where, getDocs, deleteDoc, doc,
   type DocumentData,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -138,19 +138,21 @@ export async function getCheckIns(userId: string): Promise<CheckInData[]> {
     const q = query(
       collection(db, COLLECTION),
       where("user_id", "==", userId),
-      orderBy("created_at", "asc"),
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => {
+    const results = snap.docs.map((d) => {
       const data = d.data() as DocumentData;
       return {
-        mood: data.mood,
-        sleepHours: data.sleep,
-        workStress: data.stress,
-        timestamp: data.created_at,
-        burnoutScore: data.burnout_score,
+        mood: data.mood ?? 3,
+        sleepHours: data.sleep ?? 7,
+        workStress: data.stress ?? 3,
+        timestamp: data.created_at ?? new Date().toISOString(),
+        burnoutScore: data.burnout_score ?? 0,
       } as CheckInData;
     });
+    // Sort client-side to avoid needing a Firestore composite index
+    results.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    return results;
   } catch (error) {
     console.error("Failed to fetch check-ins from Firestore:", error);
     return [];
