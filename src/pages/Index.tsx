@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckInForm } from "@/components/CheckInForm";
 import { Dashboard } from "@/components/Dashboard";
 import { AiChat } from "@/components/AiChat";
+import { SafetyAlert } from "@/components/SafetyAlert";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginScreen } from "@/components/LoginScreen";
 import { signOut } from "firebase/auth";
